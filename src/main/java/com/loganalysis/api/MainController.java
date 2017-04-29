@@ -1,23 +1,16 @@
 package com.loganalysis.api;
 
 
-import com.loganalysis.config.Settings;
+import com.loganalysis.vo.AuthLog;
 import hex.genmodel.GenModel;
-import hex.genmodel.easy.EasyPredictModelWrapper;
-import hex.genmodel.easy.RowData;
 import hex.genmodel.easy.exception.PredictException;
-import hex.genmodel.easy.prediction.AbstractPrediction;
-import hex.genmodel.easy.prediction.AutoEncoderModelPrediction;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLClassLoader;
 
 /**
  * Created by pc on 3/27/17.
@@ -29,35 +22,42 @@ public class MainController {
     public ResponseEntity<?> filterAuth(String user, String source, String dest) throws IOException, ClassNotFoundException, IllegalAccessException,
             InstantiationException, PredictException {
 
-//        URL modelURL = (new File(Settings.MODEL_PATH)).toURI().toURL();
+        return new ResponseEntity<Object>(calculateAnomaly(user, source, dest),HttpStatus.valueOf(200));
+    }
+
+    @RequestMapping(value = "/filterAuthBatch", consumes = "application/json")
+    public ResponseEntity<?> filterAuthBatch(@RequestBody AuthLog[] authLogs) throws IOException, ClassNotFoundException, IllegalAccessException,
+            InstantiationException, PredictException {
+
+        double[] results = new double[authLogs.length];
+
+        for(int i = 0; i < authLogs.length; i++){
+
+            results[i] = calculateAnomaly(authLogs[i].user, authLogs[i].source, authLogs[i].destination);
+
+        }
+
+        return new ResponseEntity<Object>(results,HttpStatus.valueOf(200));
+    }
+
+
+    public double calculateAnomaly(String user, String source, String dest){
+
+        //        URL modelURL = (new File(Settings.MODEL_PATH)).toURI().toURL();
 //        URLClassLoader modelLoader = new URLClassLoader(new URL[]{modelURL},GenModel.class.getClassLoader());
 //        GenModel rawModel = (GenModel) modelLoader.loadClass(Settings.MODEL_CLASS_NAME).newInstance();
 
         GenModel rawModel = new DeepLearning_model_R_1490600987592_4();
 
-//        modelLoader.close();
-
-        EasyPredictModelWrapper model = new EasyPredictModelWrapper(rawModel);
-
-
-        RowData row = new RowData();
-        row.put("destination", "C1003");
-        row.put("user", "U620@DOM1");
-        row.put("source", "C17693");
+        //        modelLoader.close();
 
         double data[] = new double[4];
-
-//        data[0] = rawModel.mapEnum(rawModel.getColIdx("destination"),"C368");
-//        data[1] = rawModel.mapEnum(rawModel.getColIdx("user"),"U12@DOM1");
-//        data[2] = rawModel.mapEnum(rawModel.getColIdx("source"),"C22409");
 
         data[0] = rawModel.mapEnum(rawModel.getColIdx("destination"),dest);
         data[1] = rawModel.mapEnum(rawModel.getColIdx("user"),user);
         data[2] = rawModel.mapEnum(rawModel.getColIdx("source"),source);
 
         double[] preds = new double [rawModel.nclasses()+1];
-
-        //AbstractPrediction aemPred = model.predict(row);
 
         rawModel.score0(data, preds);
 
@@ -88,32 +88,18 @@ public class MainController {
             x++;
         }
 
-
         int y = 0;
         double avg = 0;
 
         for (int i :
                 indices) {
-//            if(x != 0) {
-//                if (((int) data[x]) == (i - cutpoints[x - 1] - 1)) {
-//
-//                } else {
-//
-//                }
-                if(((int)data[y]) != -1)
-                    avg += 1 - preds[((int)data[y])];
-                y++;
-//            }else{
-//                if (((int) data[x]) == i) {
-//
-//                } else {
-//
-//                }
-//            }
+            if(((int)data[y]) != -1)
+                avg += 1 - preds[((int)data[y])];
+            y++;
 
         }
 
-        return new ResponseEntity<Object>(avg/ indices.length,HttpStatus.valueOf(200));
+        return avg/ indices.length;
     }
 
     @RequestMapping("/greeting")
